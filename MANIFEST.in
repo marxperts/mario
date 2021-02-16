@@ -1,0 +1,13 @@
+include pyproject.toml
+
+# Include the README
+include README.md
+include LICENSE.txt
+include MANIFEST.in
+
+# Include setup.py
+include setup.py
+include lib/_lib*.*.*.*
+
+# Include the example files
+include example/*

@@ -1,0 +1,16 @@
+Metadata-Version: 1.0
+Name: mario
+Version: 1.0
+Summary: Module to read and write mar345 images
+Home-page: http://www.marxperts.com
+Author: Dr. Claudio Klein, marXperts GmbH
+Author-email: claudio.klein@marxperts.com
+License: OEPL
+Description: mario is a Python module to read and write mar345 images
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python/C :: 3
+Classifier: Environment :: Console
+Classifier: License :: Freely Distributable
+Classifier: Topic :: Scientific
