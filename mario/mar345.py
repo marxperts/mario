@@ -17,7 +17,7 @@ Version         Date        Description
 1.0             23/01/2020  Original version
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 """
-import os, sys, array, time, datetime, re
+import os, sys, array, time, datetime, re, math
 import numpy as np
 path = os.path.dirname(__file__)
 sys.path.append(path)
@@ -161,15 +161,17 @@ h345_line  = {
 }
 
 ###########################################################################
-## Class/start:  Mar345
-## Arguments:    verbose (optional, default=0)
+## Class:       Mar345
+## Arguments:   name:      filename
+##              data:      image array for image output
+##              header:    4k image header for image output
+##              verbose:   default=0
 ###########################################################################
-class Mar345:
-
+class Mar345( ):
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Function:         __init__
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    def __init__(self, verbose=0):
+    def __init__(self, name=None, data=None, header=None, verbose=0):
         '''Mar345::__init__: initialize class'''
         self.__name__   = 'mar345'
         self.verbose    = verbose
@@ -177,12 +179,19 @@ class Mar345:
         self.y		    = 1
         self.pixels	    = 0
         self.high	    = 0
+        self.filename   = name
         self.success    = False
         self.data       = None
-        self.header     = h345
+        self.header     = h345      # Fill header with defaults
         self.raw_header = None
         self.bpp        = 2
         if self.verbose > 1: print("Mar345::__init__: ")
+        # Has a file name been given?
+        if name != None:
+            if isinstance(data, np.ndarray):    # Datar given: write image
+                self.write( name, data, h345 if header == None else header)
+            else:                               # No data given: read image
+                self.read(name)
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Function:         string64
@@ -325,24 +334,34 @@ class Mar345:
         # Optional argument header can be a 4k string or a h345 dictionary
         self.filename   = name
         self.success    = False
+        if isinstance( data, np.ndarray):
+            self.pixels	    = data.shape[0]
+            # Watch out: for mar345 images x may be != y (e.g.Dectris detectors)
+            if self.x == 1:
+                self.x		    = int(math.sqrt( self.pixels ))
+                self.y		    = self.x
         if self.verbose > 1: print("Mar345::write: {} header={}".format(self.filename,onlyheader))
-        try:
-            fp = open(self.filename, 'wb')
-        except IOError as eStr:
-            print("ERROR (Mar345::write): Cannot open '{}'".format(self.filename))
-            print("ERROR (Mar345::write): {}".format(eStr))
-            return self
-        except:
-            print("ERROR (Mar345::write): open ends with error {}".format(sys.exc_info()[0]))
-            return self
+        fp = self.open( name=name, doread=False)
+        if fp == None: return self
 
         # Open has been successful, so get image header
-        if header == None:          # Makes an image header out of thin air
+        if header == None:              # Makes image header out of thin air
             header = self.makeheader()
         elif isinstance(header, dict):  # Uses a given h345 dict
             header = self.makeheader(header)
         elif isinstance(header, str):   # Uses a full 4k header string
-            if self.verbose>1: print("header is string")
+            print ("ERROR (Mar345::write:): header must be bytes not string")
+            return self
+        elif isinstance(header, bytes): # Uses a full 4k header string
+            # Get byteorder, nx and pixels from header, don't rely on sqrt
+            b = int.from_bytes( header[ 0: 4], 'little')
+            if b == 1234:
+                b = 'little'
+            else:
+                b = 'big'
+            self.x = int.from_bytes( header[ 4: 8], b)
+            self.pixels = int.from_bytes( header[20:24], b)
+            self.y = int(self.pixels/self.x)
         ##################
         fp.write( header )
         ##################
@@ -363,9 +382,8 @@ class Mar345:
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Function:     writehigh
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    def writehigh(self,fp,header, data):
+    def writehigh(self,fp,header,data):
         '''Mar345::writehigh: writes mar345 high intensity pixels '''
-        if self.verbose > 1: print("Mar345::writehigh: ", self.x, self.y)
         if data.max() < 65536 or fp == None: return data
         i = 0
         h = 0
@@ -381,6 +399,8 @@ class Mar345:
                 # print("qqq {:5d} @ {:-8d} {:6d} -> {}".format(h,i,int(n), int(data[i])))
             i+=1
         pos = fp.tell()
+
+        if self.verbose > 1: print("Mar345::writehigh: {} > 16-bits".format(h))
 
         if self.header != None:
             if 'high' in self.header: self.header['high'] = h
@@ -401,7 +421,7 @@ class Mar345:
         fp.seek(pos)
         return data
 
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Function:     _writedata
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     def writedata(self,data):
@@ -416,6 +436,20 @@ class Mar345:
         if r == self.x*self.y:  self.success = True
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Function:         open
+    # Arguments:        filename (mandatory), onlyheader (optional, False|True)
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def open(self, name=None, doread=True):
+        if name == None: name=self.filename
+        if name == None: return None
+        try:
+            fp = open(name, 'rb' if doread else 'wb')
+            return fp
+        except:
+            print("ERROR (Mar345::open): Cannot open '{}' for {} ".format(name, "reading" if doread else "writing"))
+            return None
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Function:         read
     # Arguments:        filename (mandatory), onlyheader (optional, False|True)
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -425,20 +459,14 @@ class Mar345:
         self.header     = None
         self.filename   = name
         self.success    = False
-        if self.verbose > 1: print("Mar345::read: {} header={}".format(self.filename,onlyheader))
-        try:
-            fp = open(self.filename, 'rb')
-        except IOError as eStr:
-            print("ERROR (Mar345::read): Cannot open '{}'".format(self.filename))
-            print("ERROR (Mar345::read): {}".format(eStr))
-            return self
-        except:
-            print("ERROR (Mar345::read): open ends with error {}".format(sys.exc_info()[0]))
-            return self
+        if self.verbose > 1: print("Mar345::read: {} onlyheader={}".format(self.filename,onlyheader))
+
+        fp = self.open(name)
+        if fp == None: return self
 
         # Open has been successful, so get image header
-        self.readheader( fp )
-        if ( self.success == False ) or ( onlyheader ):
+        self.readheader( fp=fp )
+        if self.success == False or ( onlyheader ):
             fp.close()
             return self
 
@@ -463,22 +491,22 @@ class Mar345:
         if self.verbose > 1: print("Mar345::readdata: ", self.x, self.y)
         self.success = False
         N = self.x * self.y
-        if self.data != None and self.verbose > 0:
-            print("Mar345::readdata: New size is %d x %d " % (self.x,self.y))
         self.data = np.zeros( self.x * self.y, dtype=np.int32 )
-        # Data I/O is via mario.c using CFFI
+        # Data I/O is via libmar345 using CFFI
         # r should return the number of pixels read from file
         s = self.filename.encode('ascii', 'ignore') # self.filename is unicode!
         r = lib.Getmar345DataFromName(s,N,ffi.cast("int *", ffi.from_buffer(self.data) ) )
-        # r = mario.GetmarData32(s, 0, N, self.data )
         if r == N:  self.success = True
         return self
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Function:     readheader
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    def readheader(self, fp=None):
+    def readheader(self, name=None, fp=None):
         '''Mar345::readheader: reads mar345 image header'''
+        if fp == None:
+            fp = self.open( name if name != None else self.filename )
+
         n = 0
         h345_keys = list(h345_line.keys())
 
@@ -495,7 +523,7 @@ class Mar345:
             h32.byteswap()
             h345['swap'] = 1
         if h32[0] != 1234:
-            print("ERROR in mar345header: First integer in header should be 1234 but is %d.\nThis is NOT a mar345 image!" % h32[0])
+            print("ERROR (Mar345::readheader): First integer in header should be 1234 but is %d.\nThis is NOT a mar345 image!" % h32[0])
             return None
 
         # Get first 16 integer values from file
@@ -518,7 +546,7 @@ class Mar345:
         fp.seek(128)
         line = fp.read(64)
         if line[:12] != b'mar research':
-            print("WARNING in mar345header: byte 128 should start with string 'mar research' but starts with '%s'" % line[:12])
+            print("WARNING (Mar345::readheader): byte 128 should start with string 'mar research' but starts with '%s'" % line[:12])
         else:
             if self.verbose > 1: print("Byte  128: %s" % line[:12], "\n", 60*'+')
 
@@ -740,26 +768,22 @@ class Mar345:
         fp.seek( 0 )
         self.raw_header = fp.read(4096)
         del h32         # Version 2.1.0: free memory
-        return self
+        return self.raw_header
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# Class/end:    mar345_image
+# Class/end:    Mar345
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ###########################################################################
 ## If this python file is called by itself, run the main program ...
 ###########################################################################
 if __name__ == "__main__":
-    name = "a.mar1200"
-    verbose = 3
-    print("test: Initialize class")
-    test = Mar345(verbose)
-    print("test: Reading image")
-    test.read( name )
-    print ("test: Shape of array is {}".format(  test.data.shape ))
-    f = open( "x.raw16", "wb")
-    f.write( test.data )
+    print("mar345: Reading image")
+    img = Mar345(name="../example/a.mar1200", verbose=2)
+    print ("mar345: Shape of array is {}".format(  img.data.shape ))
+    f = open( "x.raw32", "wb")
+    f.write( img.data )
     f.close()
-    print ("test: Wrote x.raw16")
+    print ("mar345: Wrote x.raw32")
 
 

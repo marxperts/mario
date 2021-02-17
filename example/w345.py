@@ -33,7 +33,7 @@ def start():
     p.add_option('-o', '--outfile', default=None, help="Name of output file")
     p.add_option('-v', '--verbose', default=0, action="count",help="Increase verbosity level")
     p.add_option('-d', '--debug',   default=0, type="int",help="Debug level")
-    p.add_option('--prg',default="write345")
+    p.add_option('--prg',default="w345")
     o,r  = p.parse_args()
 
     # Arg without command line switch: probably a file name. Loop through r until valid file found
@@ -43,12 +43,12 @@ def start():
                 o.outfile = name
 
     # Initialize Mar345 class
-    img = mar345.Mar345(o.verbose)
-    img.x = o.x
-    img.y = o.x
-    img.pixels = o.x*o.y
+    img         = mar345.Mar345(verbose=o.verbose)
+    img.x       = o.x
+    img.y       = o.x
+    img.pixels  = o.x*o.y
     # Create some random data with values between 0 and 512
-    img.data = np.random.randint(0,high=512,size=(img.pixels,), dtype=np.uint32)
+    img.data = np.random.randint(0,high=512,size=(img.pixels,),dtype=np.uint32)
     # Circular image: set pixels outside radius to 0
     n = 0
     cx = o.x/2
@@ -58,17 +58,17 @@ def start():
             if math.sqrt( cy2 + math.pow(x-cx,2.) ) > cx: img.data[n] = 0
             n+=1
     # Update some important image header information
-    img.header['x'] = img.x
-    img.header['pixels'] = img.pixels
+    img.header['x']         = img.x
+    img.header['pixels']    = img.pixels
     # Update some optional image header information
-    img.header['x'] = img.x
-    img.header['valmax'] = int(img.data.max())
-    img.header['valavg'] = img.data.mean()
+    img.header['x']         = img.x
+    img.header['valmax']    = int(img.data.max())
+    img.header['valavg']    = img.data.mean()
     # Now, make the header and give it back to me as 4k byte string
-    img.raw_header = img.makeheader()
+    img.raw_header          = img.makeheader()
 
     if o.debug>0:
-        with open( 'header', 'wb') as fp: fp.write(img.raw_header)
+        with open( 'header',     'wb') as fp: fp.write(img.raw_header)
         with open( 'data.raw32', 'wb') as fp: fp.write(img.data)
 
     # Write out mar345 image
