@@ -2,12 +2,12 @@ include pyproject.toml
 
 # Include the README
 include README.md
-include LICENSE.txt
+include LICENSE
 include MANIFEST.in
 
 # Include setup.py
 include setup.py
-include lib/_lib*.*.*.*
+include lib/*
 
 # Include the example files
 include example/*

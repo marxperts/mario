@@ -40,7 +40,9 @@ except FileNotFoundError:
 if "Win" in OS:
     mylib = '_libmar345.pyd'
 elif "Darwin" in OS:
-    mylib = '_libmar345.dylib'
+    V = sys.version_info[:3]
+    # mylib = '_libmar345.dylib'
+    mylib = "_libmar345.cpython-{}{}-darwin.so".format( V[0], V[1])
 else:
     mylib = '_libmar345.so'
 sosrc = 'lib/_libmar345.{}.{}.so'.format(platform.system(),platform.machine())
@@ -84,9 +86,15 @@ clibs = []
 for i in glob.glob( "lib{}_libmar345.*.*.*".format(os.path.sep) ):
     f = "lib{}{}".format( os.path.sep,os.path.basename(i))
     clibs.append( f )
+for i in glob.glob( "lib{}marpck.*".format(os.path.sep) ):
+    f = "lib{}{}".format( os.path.sep,os.path.basename(i))
+    clibs.append( f )
+for i in glob.glob( "lib{}build*.py".format(os.path.sep) ):
+    f = "lib{}{}".format( os.path.sep,os.path.basename(i))
+    clibs.append( f )
 
 # Get all files in example
-example = []
+example = [ ]
 for i in glob.glob( "example{}*".format(os.path.sep) ):
     f = "example{}{}".format( os.path.sep,os.path.basename(i))
     example.append( f )
@@ -94,6 +102,7 @@ for i in glob.glob( "example{}*".format(os.path.sep) ):
 print (60*'+')
 print ("Master directory:  \t {}".format(here))
 print ("Libraries:         \t {}".format( clibs ))
+print ("My library:        \t {}".format( mylib  ))
 print ("Examples:          \t {}".format( example ))
 print (60*'+')
 
@@ -119,7 +128,6 @@ setup(
     package_data={ NAME: [ mylib ] },
 
     # packages=find_packages(where=NAME),
-    data_files=[ ('example', example), ( 'lib', clibs) ],
     scripts=[ ],
     options = { },
     classifiers=[
