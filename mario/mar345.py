@@ -14,6 +14,7 @@ Author:		    Claudio Klein
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 History:
 Version         Date        Description
+1.0.1           08/03/2021  readheader: fix self.y = int(... )
 1.0             23/01/2020  Original version
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 """
@@ -537,7 +538,7 @@ class Mar345( ):
 
         # Dimensions
         self.x      = h32[1]
-        self.y      = h32[5]/self.x
+        self.y      = int(h32[5]/self.x)
         self.high   = h32[2]
 
         self.success = True
@@ -698,7 +699,7 @@ class Mar345( ):
 
         # Non-square images:
         if h345['x'] * h345['y'] != h345['pixels'] and h345['pixels'] > 0:
-            h345['y'] = h345['pixels'] / h345['x']
+            h345['y'] = int(h345['pixels'] / h345['x']) # Version 1.0.1 bug fix
 
         # Convert pixelsize into mm
         if h345['pixelsize'][0] <=0.0:
@@ -756,10 +757,10 @@ class Mar345( ):
             if self.verbose > 1: print(60*'+')
 
         # Put some important stuff into self
-        self.x          = h345['x']
-        self.y          = h345['y']
-        self.pixels     = h345['pixels']
-        self.high       = h345['high']
+        self.x          = int(h345['x'])
+        self.y          = int(h345['y'])
+        self.pixels     = int(h345['pixels'])
+        self.high       = int(h345['high'])
 
         # Put the mar345 header into self
         self.header     = h345
